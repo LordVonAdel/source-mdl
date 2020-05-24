@@ -22,10 +22,10 @@ fs.readFile('./turret.mdl', (err, mdlData) => {
   fs.readFile('./turret.dx90.vtx', (err, vtxData) => {
     if (err) return console.error(err);
     
-    fs.readFile('./turret.vvd', (err, vddData) => {
+    fs.readFile('./turret.vvd', (err, vvdData) => {
 
       // Import the three buffers
-      model.import({mdlData, vtxData, vddData});
+      model.import({mdlData, vtxData, vvdData});
 
       // If you want, look at some metadata
       console.log(model.getMetadata());

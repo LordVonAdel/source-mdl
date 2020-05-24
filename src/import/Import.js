@@ -29,9 +29,13 @@ class Import {
     let id = data.mdlData.readInt32BE(0);
     if (id != 0x49445354) throw new Error("Unkown MDL id: " + id);
 
-    this.headerMDL = studio.studiohdr_t.import(data.mdlData);
-    this.headerVTX = optimize.FileHeader_t.import(data.vtxData);
-    this.headerVVD = studio.vertexFileHeader_t.import(data.vddData);
+    this.importMDL = studio.studiohdr_t.report(data.mdlData);
+    this.importVTX = optimize.FileHeader_t.report(data.vtxData);
+    this.importVVD = studio.vertexFileHeader_t.report(data.vvdData);
+
+    this.headerMDL = this.importMDL.data;
+    this.headerVTX = this.importVTX.data;
+    this.headerVVD = this.importVVD.data;
 
     if (this.headerMDL.checksum != this.headerVTX.checkSum) throw new Error("Checksums don't match! (MDL <-> VTX)");
     if (this.headerMDL.checksum != this.headerVVD.checksum) throw new Error("Checksums don't match! (MDL <-> VVD)");
@@ -54,7 +58,7 @@ class Import {
     if (this.headerVVD.fixups.length == 0) {
       for (let i = 0; i < this.headerVVD.numLODVertexes0; i++) {
         let address = this.headerVVD.vertexDataStart + i * 48;
-        let vtx = studio.mstudiovertex_t.import(data.vddData, address);
+        let vtx = studio.mstudiovertex_t.read(data.vvdData, address);
         this.mdl.vertices[0].push({
           position: [vtx.m_vecPosition.x, vtx.m_vecPosition.y, vtx.m_vecPosition.z],
           normal: [vtx.m_vecNormal.x, vtx.m_vecNormal.y, vtx.m_vecNormal.z],
@@ -66,7 +70,7 @@ class Import {
         for (let i = 0; i < fixup.numVertexes; i++) {
           let address = this.headerVVD.vertexDataStart + (i + fixup.sourceVertexId) * 48;
           for (let j = fixup.lod; j >= 0; j--) {
-            let vtx = studio.mstudiovertex_t.import(data.vddData, address)
+            let vtx = studio.mstudiovertex_t.import(data.vvdData, address)
             this.mdl.vertices[j].push({
               position: [vtx.m_vecPosition.x, vtx.m_vecPosition.y, vtx.m_vecPosition.z],
               normal: [vtx.m_vecNormal.x, vtx.m_vecNormal.y, vtx.m_vecNormal.z],
