@@ -3,13 +3,13 @@ const fs = require('fs');
 
 let model = new MDL();
 
-fs.readFile('./test/candles.mdl', (err, mdlData) => {
+fs.readFile('./test/turret.mdl', (err, mdlData) => {
   if (err) return console.error(err);
   
-  fs.readFile('./test/candles.dx90.vtx', (err, vtxData) => {
+  fs.readFile('./test/turret.dx90.vtx', (err, vtxData) => {
     if (err) return console.error(err);
     
-    fs.readFile('./test/candles.vvd', (err, vvdData) => {
+    fs.readFile('./test/turret.vvd', (err, vvdData) => {
       model.import({mdlData, vtxData, vvdData});
       console.log(model.getMetadata());
 

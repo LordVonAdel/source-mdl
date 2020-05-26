@@ -52,6 +52,8 @@ class MDL {
 
     // First Layer: LOD, Second layer: Vertice
     this.vertices = [];
+
+    this.raw = {};
   }
 
   getMetadata() {
@@ -106,6 +108,7 @@ class MDL {
   toGLTF() {
     return toGLTF(this);
   }
+
 }
 
 module.exports = MDL;
