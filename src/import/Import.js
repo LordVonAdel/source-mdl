@@ -29,9 +29,9 @@ class Import {
     let id = data.mdlData.readInt32BE(0);
     if (id != 0x49445354) throw new Error("Unkown MDL id: " + id);
 
-    this.importMDL = studio.studiohdr_t.report(data.mdlData);
-    this.importVTX = optimize.FileHeader_t.report(data.vtxData);
-    this.importVVD = studio.vertexFileHeader_t.report(data.vvdData);
+    this.importMDL = studio.studiohdr_t.report(data.mdlData, 0, { hideReferenceValues: true, monitorUsage: true });
+    this.importVTX = optimize.FileHeader_t.report(data.vtxData, 0, { hideReferenceValues: true, monitorUsage: true });
+    this.importVVD = studio.vertexFileHeader_t.report(data.vvdData, 0, { hideReferenceValues: true, monitorUsage: true });
 
     console.log(this.importMDL.toString());
 
@@ -88,7 +88,6 @@ class Import {
       }
     }
 
-
     for (let i = 0; i < this.headerMDL.bodyparts.length; i++) {
       let bodyPartsMDL = this.headerMDL.bodyparts[i];
       let bodyPartsVTX = this.headerVTX.bodyParts[i];
@@ -134,7 +133,6 @@ class Import {
         }
       }
     }
-
   }
 
 }

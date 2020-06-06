@@ -15,6 +15,6 @@
   "author": "LordVonAdel",
   "license": "ISC",
   "dependencies": {
-    "structron": "^0.2.2"
+    "structron": "^0.2.4"
   }
 }

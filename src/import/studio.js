@@ -335,8 +335,16 @@ const mstudioattachment_t = new StudioStruct()
 const mstudiomodelgroup_t = new StudioStruct()
   .addMember(StudioStruct.TYPES.INT, "szlabelindex")
   .addMember(StudioStruct.TYPES.INT, "sznameindex")
-  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "label", "szlabelindex")
-  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "name", "sznameindex")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "label", "szlabelindex", true)
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "name", "sznameindex", true);
+
+const mstudioposeparamdesc_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "sznameindex")
+  .addMember(StudioStruct.TYPES.UINT, "flags")
+  .addMember(StudioStruct.TYPES.FLOAT, "start")
+  .addMember(StudioStruct.TYPES.FLOAT, "end")
+  .addMember(StudioStruct.TYPES.FLOAT, "loop")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "name", "sznameindex", true);
 
 const studiohdr_t = new StudioStruct()
   .addMember(StudioStruct.TYPES.INT, "id")
@@ -425,7 +433,10 @@ const studiohdr_t = new StudioStruct()
   .addArray(mstudioattachment_t, "attachments", "attachment_offset", "attachment_count")
   .addArray(mstudioiklock_t, "iklocks", "iklock_index", "iklock_count")
   .addArray(mstudiomodelgroup_t, "includemodel_index", "animblocks_count")
-  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "surfaceProp", "surfaceprop_index");
+  .addArray(StudioStruct.TYPES.SHORT, "skinreferences", "skinreference_index", "skinreference_count")
+  .addArray(mstudioposeparamdesc_t, "localposeparams", "localposeparam_offset", "localposeparam_count")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "surfaceProp", "surfaceprop_index")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "keyvalue", "keyvalue_index");
 
 const vertexFileFixup_t = new StudioStruct()
   .addMember(StudioStruct.TYPES.INT, "lod")
