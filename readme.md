@@ -2,7 +2,7 @@
 
 This package can read source engines MDL files. To parse a model, it needs the VTX, VVD and MDL file.
 
-It may not work with every model. Was tested with models from Portal 2.
+It may not work with every model. It was tested with models from Portal 2.
 
 After the model was imported, it can be exported in GLTF format. This conversion is lossy. Prop data like surface property, mouths, eyes and special source stuff will not be exported.
 
