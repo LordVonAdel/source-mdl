@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MDL to GLTF converter</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <div class="background"></div>
+
+    <main class="">
+      <h1>MDL to GLTF converter</h1>
+      <p>Conversion is performed locally in your browser. Submitted assets are not uploaded.</p>
+
+
+      <div id="dropzone">
+        <p class="instruction">
+          Drag Files here (MDL, VVD and VTX)
+        </p>
+        <div class="tray">
+          <div class="file">
+            <span>MDL</span>
+            <br>
+            <span class="filename" id="filename-mdl">Missing</span>
+          </div>
+          <div class="file">
+            <span>VVD</span>
+            <br>
+            <span class="filename" id="filename-vvd">Missing</span>
+          </div>
+          <div class="file">
+            <span>VTX</span>
+            <br>
+            <span class="filename" id="filename-vtx">Missing</span>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-read">Download GLTF</button>
+
+      <p>This tool works with most models from Portal 2. It may not work with other Source games. Tested in Chrome and Firefox</p>
+      <p>TIP: You can drag files directly from GCFScape</p>
+    </main>
+    <script src="bundle.js"></script>
+    <script>
+      const extensions = ["mdl", "vtx", "vvd"];
+      const filenameDOMs = {};
+      const files = {};
+      for (let extension of extensions) {
+        filenameDOMs[extension] = document.getElementById("filename-" + extension);
+      }
+
+      document.getElementById("dropzone").addEventListener("dragover", e => e.preventDefault());
+
+      document.getElementById("dropzone").addEventListener("drop", e => {
+        e.preventDefault();
+
+        for (let i = 0; i < e.dataTransfer.items.length; i++) {
+          if (e.dataTransfer.items[i].kind === 'file') {
+            let file = e.dataTransfer.items[i].getAsFile();
+
+            for (let extension of extensions) {
+              if (file.name.endsWith(extension)) {
+                filenameDOMs[extension].innerText = file.name;
+                files[extension] = file;
+              }
+            }
+          }
+        }
+ 
+      });
+
+      document.getElementById("btn-read").addEventListener("click", () => {
+        if (!("mdl" in files && "vvd" in files && "vtx" in files)) {
+          return false;
+        }
+
+        const reader = new FileReader();
+        const buffers = [];
+        let readType = "mdl";
+
+        reader.addEventListener('load', e => {
+          buffers[readType] = reader.result;
+
+          if (readType == "mdl") {
+            readType = "vvd";
+            reader.readAsArrayBuffer(files["vvd"]);
+          } else if (readType == "vvd") {
+            readType = "vtx";
+            reader.readAsArrayBuffer(files["vtx"]);
+          } else if (readType == "vtx") {
+            console.log("Files read and now converting...");
+            console.log(convert(
+              buffers["mdl"],
+              buffers["vvd"],
+              buffers["vtx"]
+            ));
+          }
+
+        });
+
+        reader.readAsArrayBuffer(files["mdl"]);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,82 @@
+body {
+  font-family: sans-serif;
+}
+
+.background {
+  position: absolute;
+  display: block;
+  left: 0px;
+  top: 0px;
+  right: 0px;
+  bottom: 0px;
+  background: url('./background.jpg') fixed;
+  filter: saturate(80%) brightness(80%);
+}
+
+main {
+  margin: auto;
+  margin-top: 4em;
+  max-width: 1200px;
+  color: white;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 1em;
+  padding: 1em;
+  backdrop-filter: blur(4px);
+}
+
+#dropzone {
+  border: 1px solid #AAA;
+  border-radius: 4px;
+  background: #CCC;
+  color: #555;
+  box-sizing: border-box;
+  padding-top: 1em;
+}
+
+button {
+  background-color: #4CAF50; /* Green */
+  border: none;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  background-color: #e7e7e7; 
+  color: rgb(65, 58, 58);
+  margin-top: 1em;
+}
+
+button:hover {
+  background-color: #c7c7c7;
+}
+
+.tray {
+  display: flex;
+  flex-direction: row;
+}
+
+.file {
+  width: 33%;
+  background-color: #DDD;
+  text-align: center;
+  height: 200px;
+  padding: 1em;
+  margin-left: 1em;
+  margin-right: 1em;
+  margin-bottom: 1em;
+}
+
+.file span {
+  font-size: 150%;
+}
+
+.filename {
+  font-style: italic;
+}
+
+.instruction {
+  margin-top: 0em;
+  margin-bottom: 0.5em;
+  margin-left: 0.5em;
+  font-size: 200%;
+}
