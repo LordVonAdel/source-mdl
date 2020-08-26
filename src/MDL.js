@@ -109,6 +109,10 @@ class MDL {
     return toGLTF(this);
   }
 
+  toData() {
+    return this.raw;
+  }
+
 }
 
 module.exports = MDL;
