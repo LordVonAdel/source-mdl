@@ -12,6 +12,17 @@ window.convert = function(mdl, vvd, vtx) {
   download("model.gltf", gltf);
 }
 
+window.convertToJSON = function(mdl, vvd, vtx) {
+  let model = new MDL();
+  model.import({
+    mdlData: Buffer.from(mdl), 
+    vvdData: Buffer.from(vvd), 
+    vtxData: Buffer.from(vtx)
+  });
+  let json = JSON.stringify(model.toData());
+  download("model.json", json);
+}
+
 function download(filename, content) {
   var element = document.createElement('a');
   element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));

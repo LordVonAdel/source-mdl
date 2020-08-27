@@ -5,7 +5,7 @@
   "main": "main.js",
   "dependencies": {
     "buffer": "^5.6.0",
-    "source-mdl": "0.0.5"
+    "source-mdl": "0.0.6"
   },
   "devDependencies": {},
   "scripts": {

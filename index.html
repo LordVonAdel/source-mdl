@@ -13,7 +13,6 @@
       <h1>MDL to GLTF converter</h1>
       <p>Conversion is performed locally in your browser. Submitted assets are not uploaded.</p>
 
-
       <div id="dropzone">
         <p class="instruction">
           Drag Files here (MDL, VVD and VTX)
@@ -37,6 +36,7 @@
         </div>
       </div>
 
+      <button id="btn-json">Download JSON</button>
       <button id="btn-read">Download GLTF</button>
 
       <p>This tool works with most models from Portal 2. It may not work with other Source games. Tested in Chrome and Firefox</p>
@@ -100,6 +100,37 @@
 
         });
 
+        reader.readAsArrayBuffer(files["mdl"]);
+      });
+
+      document.getElementById("btn-json").addEventListener("click", () => {
+        if (!("mdl" in files && "vvd" in files && "vtx" in files)) {
+          return false;
+        }
+
+        const reader = new FileReader();
+        const buffers = [];
+        let readType = "mdl";
+
+        reader.addEventListener('load', e => {
+          buffers[readType] = reader.result;
+
+          if (readType == "mdl") {
+            readType = "vvd";
+            reader.readAsArrayBuffer(files["vvd"]);
+          } else if (readType == "vvd") {
+            readType = "vtx";
+            reader.readAsArrayBuffer(files["vtx"]);
+          } else if (readType == "vtx") {
+            console.log("Files read and now converting...");
+            console.log(convertToJSON(
+              buffers["mdl"],
+              buffers["vvd"],
+              buffers["vtx"]
+            ));
+          }
+
+        });
         reader.readAsArrayBuffer(files["mdl"]);
       });
     </script>

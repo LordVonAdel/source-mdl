@@ -2034,6 +2034,17 @@ window.convert = function(mdl, vvd, vtx) {
   download("model.gltf", gltf);
 }
 
+window.convertToJSON = function(mdl, vvd, vtx) {
+  let model = new MDL();
+  model.import({
+    mdlData: Buffer.from(mdl), 
+    vvdData: Buffer.from(vvd), 
+    vtxData: Buffer.from(vtx)
+  });
+  let json = JSON.stringify(model.toData());
+  download("model.json", json);
+}
+
 function download(filename, content) {
   var element = document.createElement('a');
   element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
@@ -2047,8 +2058,160 @@ function download(filename, content) {
   document.body.removeChild(element);
 }
 },{"buffer/":6,"source-mdl":8}],5:[function(require,module,exports){
-arguments[4][1][0].apply(exports,arguments)
-},{"dup":1}],6:[function(require,module,exports){
+'use strict'
+
+exports.byteLength = byteLength
+exports.toByteArray = toByteArray
+exports.fromByteArray = fromByteArray
+
+var lookup = []
+var revLookup = []
+var Arr = typeof Uint8Array !== 'undefined' ? Uint8Array : Array
+
+var code = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+for (var i = 0, len = code.length; i < len; ++i) {
+  lookup[i] = code[i]
+  revLookup[code.charCodeAt(i)] = i
+}
+
+// Support decoding URL-safe base64 strings, as Node.js does.
+// See: https://en.wikipedia.org/wiki/Base64#URL_applications
+revLookup['-'.charCodeAt(0)] = 62
+revLookup['_'.charCodeAt(0)] = 63
+
+function getLens (b64) {
+  var len = b64.length
+
+  if (len % 4 > 0) {
+    throw new Error('Invalid string. Length must be a multiple of 4')
+  }
+
+  // Trim off extra bytes after placeholder bytes are found
+  // See: https://github.com/beatgammit/base64-js/issues/42
+  var validLen = b64.indexOf('=')
+  if (validLen === -1) validLen = len
+
+  var placeHoldersLen = validLen === len
+    ? 0
+    : 4 - (validLen % 4)
+
+  return [validLen, placeHoldersLen]
+}
+
+// base64 is 4/3 + up to two characters of the original data
+function byteLength (b64) {
+  var lens = getLens(b64)
+  var validLen = lens[0]
+  var placeHoldersLen = lens[1]
+  return ((validLen + placeHoldersLen) * 3 / 4) - placeHoldersLen
+}
+
+function _byteLength (b64, validLen, placeHoldersLen) {
+  return ((validLen + placeHoldersLen) * 3 / 4) - placeHoldersLen
+}
+
+function toByteArray (b64) {
+  var tmp
+  var lens = getLens(b64)
+  var validLen = lens[0]
+  var placeHoldersLen = lens[1]
+
+  var arr = new Arr(_byteLength(b64, validLen, placeHoldersLen))
+
+  var curByte = 0
+
+  // if there are placeholders, only get up to the last complete 4 chars
+  var len = placeHoldersLen > 0
+    ? validLen - 4
+    : validLen
+
+  var i
+  for (i = 0; i < len; i += 4) {
+    tmp =
+      (revLookup[b64.charCodeAt(i)] << 18) |
+      (revLookup[b64.charCodeAt(i + 1)] << 12) |
+      (revLookup[b64.charCodeAt(i + 2)] << 6) |
+      revLookup[b64.charCodeAt(i + 3)]
+    arr[curByte++] = (tmp >> 16) & 0xFF
+    arr[curByte++] = (tmp >> 8) & 0xFF
+    arr[curByte++] = tmp & 0xFF
+  }
+
+  if (placeHoldersLen === 2) {
+    tmp =
+      (revLookup[b64.charCodeAt(i)] << 2) |
+      (revLookup[b64.charCodeAt(i + 1)] >> 4)
+    arr[curByte++] = tmp & 0xFF
+  }
+
+  if (placeHoldersLen === 1) {
+    tmp =
+      (revLookup[b64.charCodeAt(i)] << 10) |
+      (revLookup[b64.charCodeAt(i + 1)] << 4) |
+      (revLookup[b64.charCodeAt(i + 2)] >> 2)
+    arr[curByte++] = (tmp >> 8) & 0xFF
+    arr[curByte++] = tmp & 0xFF
+  }
+
+  return arr
+}
+
+function tripletToBase64 (num) {
+  return lookup[num >> 18 & 0x3F] +
+    lookup[num >> 12 & 0x3F] +
+    lookup[num >> 6 & 0x3F] +
+    lookup[num & 0x3F]
+}
+
+function encodeChunk (uint8, start, end) {
+  var tmp
+  var output = []
+  for (var i = start; i < end; i += 3) {
+    tmp =
+      ((uint8[i] << 16) & 0xFF0000) +
+      ((uint8[i + 1] << 8) & 0xFF00) +
+      (uint8[i + 2] & 0xFF)
+    output.push(tripletToBase64(tmp))
+  }
+  return output.join('')
+}
+
+function fromByteArray (uint8) {
+  var tmp
+  var len = uint8.length
+  var extraBytes = len % 3 // if we have 1 byte left, pad 2 bytes
+  var parts = []
+  var maxChunkLength = 16383 // must be multiple of 3
+
+  // go through the array every three bytes, we'll deal with trailing stuff later
+  for (var i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
+    parts.push(encodeChunk(
+      uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)
+    ))
+  }
+
+  // pad the end with zeros, but make sure to not forget the extra bytes
+  if (extraBytes === 1) {
+    tmp = uint8[len - 1]
+    parts.push(
+      lookup[tmp >> 2] +
+      lookup[(tmp << 4) & 0x3F] +
+      '=='
+    )
+  } else if (extraBytes === 2) {
+    tmp = (uint8[len - 2] << 8) + uint8[len - 1]
+    parts.push(
+      lookup[tmp >> 10] +
+      lookup[(tmp >> 4) & 0x3F] +
+      lookup[(tmp << 2) & 0x3F] +
+      '='
+    )
+  }
+
+  return parts.join('')
+}
+
+},{}],6:[function(require,module,exports){
 (function (Buffer){
 /*!
  * The buffer module from node.js, for the browser.
@@ -3847,8 +4010,92 @@ var hexSliceLookupTable = (function () {
 
 }).call(this,require("buffer").Buffer)
 },{"base64-js":5,"buffer":2,"ieee754":7}],7:[function(require,module,exports){
-arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],8:[function(require,module,exports){
+exports.read = function (buffer, offset, isLE, mLen, nBytes) {
+  var e, m
+  var eLen = (nBytes * 8) - mLen - 1
+  var eMax = (1 << eLen) - 1
+  var eBias = eMax >> 1
+  var nBits = -7
+  var i = isLE ? (nBytes - 1) : 0
+  var d = isLE ? -1 : 1
+  var s = buffer[offset + i]
+
+  i += d
+
+  e = s & ((1 << (-nBits)) - 1)
+  s >>= (-nBits)
+  nBits += eLen
+  for (; nBits > 0; e = (e * 256) + buffer[offset + i], i += d, nBits -= 8) {}
+
+  m = e & ((1 << (-nBits)) - 1)
+  e >>= (-nBits)
+  nBits += mLen
+  for (; nBits > 0; m = (m * 256) + buffer[offset + i], i += d, nBits -= 8) {}
+
+  if (e === 0) {
+    e = 1 - eBias
+  } else if (e === eMax) {
+    return m ? NaN : ((s ? -1 : 1) * Infinity)
+  } else {
+    m = m + Math.pow(2, mLen)
+    e = e - eBias
+  }
+  return (s ? -1 : 1) * m * Math.pow(2, e - mLen)
+}
+
+exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
+  var e, m, c
+  var eLen = (nBytes * 8) - mLen - 1
+  var eMax = (1 << eLen) - 1
+  var eBias = eMax >> 1
+  var rt = (mLen === 23 ? Math.pow(2, -24) - Math.pow(2, -77) : 0)
+  var i = isLE ? 0 : (nBytes - 1)
+  var d = isLE ? 1 : -1
+  var s = value < 0 || (value === 0 && 1 / value < 0) ? 1 : 0
+
+  value = Math.abs(value)
+
+  if (isNaN(value) || value === Infinity) {
+    m = isNaN(value) ? 1 : 0
+    e = eMax
+  } else {
+    e = Math.floor(Math.log(value) / Math.LN2)
+    if (value * (c = Math.pow(2, -e)) < 1) {
+      e--
+      c *= 2
+    }
+    if (e + eBias >= 1) {
+      value += rt / c
+    } else {
+      value += rt * Math.pow(2, 1 - eBias)
+    }
+    if (value * c >= 2) {
+      e++
+      c /= 2
+    }
+
+    if (e + eBias >= eMax) {
+      m = 0
+      e = eMax
+    } else if (e + eBias >= 1) {
+      m = ((value * c) - 1) * Math.pow(2, mLen)
+      e = e + eBias
+    } else {
+      m = value * Math.pow(2, eBias - 1) * Math.pow(2, mLen)
+      e = 0
+    }
+  }
+
+  for (; mLen >= 8; buffer[offset + i] = m & 0xff, i += d, m /= 256, mLen -= 8) {}
+
+  e = (e << mLen) | m
+  eLen += mLen
+  for (; eLen > 0; buffer[offset + i] = e & 0xff, i += d, e /= 256, eLen -= 8) {}
+
+  buffer[offset + i - d] |= s * 128
+}
+
+},{}],8:[function(require,module,exports){
 module.exports = require('./src/MDL.js');
 },{"./src/MDL.js":9}],9:[function(require,module,exports){
 const Import = require("./import/Import.js");
@@ -3905,6 +4152,8 @@ class MDL {
 
     // First Layer: LOD, Second layer: Vertice
     this.vertices = [];
+
+    this.raw = {};
   }
 
   getMetadata() {
@@ -3959,6 +4208,11 @@ class MDL {
   toGLTF() {
     return toGLTF(this);
   }
+
+  toData() {
+    return this.raw;
+  }
+
 }
 
 module.exports = MDL;
@@ -4151,13 +4405,20 @@ class Import {
     let id = data.mdlData.readInt32BE(0);
     if (id != 0x49445354) throw new Error("Unkown MDL id: " + id);
 
-    this.importMDL = studio.studiohdr_t.report(data.mdlData);
-    this.importVTX = optimize.FileHeader_t.report(data.vtxData);
-    this.importVVD = studio.vertexFileHeader_t.report(data.vvdData);
+    this.importMDL = studio.studiohdr_t.report(data.mdlData, 0, { hideReferenceValues: true, monitorUsage: true });
+    this.importVTX = optimize.FileHeader_t.report(data.vtxData, 0, { hideReferenceValues: true, monitorUsage: true });
+    this.importVVD = studio.vertexFileHeader_t.report(data.vvdData, 0, { hideReferenceValues: true, monitorUsage: true });
+
+    console.log(this.importMDL.toString());
 
     this.headerMDL = this.importMDL.data;
     this.headerVTX = this.importVTX.data;
     this.headerVVD = this.importVVD.data;
+    mdl.raw = {
+      MDL: this.headerMDL,
+      VTX: this.headerVTX,
+      VVD: this.headerVVD
+    }
 
     if (this.headerMDL.checksum != this.headerVTX.checkSum) throw new Error("Checksums don't match! (MDL <-> VTX)");
     if (this.headerMDL.checksum != this.headerVVD.checksum) throw new Error("Checksums don't match! (MDL <-> VVD)");
@@ -4192,7 +4453,7 @@ class Import {
         for (let i = 0; i < fixup.numVertexes; i++) {
           let address = this.headerVVD.vertexDataStart + (i + fixup.sourceVertexId) * 48;
           for (let j = fixup.lod; j >= 0; j--) {
-            let vtx = studio.mstudiovertex_t.import(data.vvdData, address)
+            let vtx = studio.mstudiovertex_t.read(data.vvdData, address)
             this.mdl.vertices[j].push({
               position: [vtx.m_vecPosition.x, vtx.m_vecPosition.y, vtx.m_vecPosition.z],
               normal: [vtx.m_vecNormal.x, vtx.m_vecNormal.y, vtx.m_vecNormal.z],
@@ -4202,7 +4463,6 @@ class Import {
         }
       }
     }
-
 
     for (let i = 0; i < this.headerMDL.bodyparts.length; i++) {
       let bodyPartsMDL = this.headerMDL.bodyparts[i];
@@ -4249,7 +4509,6 @@ class Import {
         }
       }
     }
-
   }
 
 }
@@ -4477,7 +4736,215 @@ const mstudiobone_t = new StudioStruct()
   .addMember(StudioStruct.TYPES.INT, "contents")
   .addMember(StudioStruct.TYPES.SKIP(32), "unused")
   .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "name", "sznameindex", true)
-  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "surfaceprop", "surfacepropidx", true)
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "surfaceprop", "surfacepropidx", true);
+
+const mstudiobbox_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "bone")
+  .addMember(StudioStruct.TYPES.INT, "group")
+  .addMember(Vector, "bbmin")
+  .addMember(Vector, "bbmax")
+  .addMember(StudioStruct.TYPES.INT, "szhitboxnameindex")
+  .addMember(StudioStruct.TYPES.SKIP(32), "unused")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "name", "szhitboxnameindex", true);
+
+const mstudiohitboxset_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "sznameindex")
+  .addMember(StudioStruct.TYPES.INT, "numhitboxes")
+  .addMember(StudioStruct.TYPES.INT, "hitboxindex")
+  .addArray(mstudiobbox_t, "hitboxes", "hitboxindex", "numhitboxes", true)
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "name", "sznameindex", true);
+
+const mstudiobonecontroller_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "bone")
+  .addMember(StudioStruct.TYPES.INT, "type")
+  .addMember(StudioStruct.TYPES.FLOAT, "start")
+  .addMember(StudioStruct.TYPES.FLOAT, "end")
+  .addMember(StudioStruct.TYPES.INT, "rest")
+  .addMember(StudioStruct.TYPES.INT, "inputfield")
+  .addMember(StudioStruct.TYPES.SKIP(32), "unused");
+
+const mstudiomovement_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "endframe")
+  .addMember(StudioStruct.TYPES.INT, "motionflags")
+  .addMember(StudioStruct.TYPES.FLOAT, "v0")
+  .addMember(StudioStruct.TYPES.FLOAT, "v1")
+  .addMember(StudioStruct.TYPES.FLOAT, "angle")
+  .addMember(Vector, "vector")
+  .addMember(Vector, "position")
+
+const mstudioikrule_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "index")
+  .addMember(StudioStruct.TYPES.INT, "type")
+  .addMember(StudioStruct.TYPES.INT, "chain")
+  .addMember(StudioStruct.TYPES.INT, "bone")
+  .addMember(StudioStruct.TYPES.INT, "slot")
+  .addMember(StudioStruct.TYPES.FLOAT, "height")
+  .addMember(StudioStruct.TYPES.FLOAT, "radius")
+  .addMember(StudioStruct.TYPES.FLOAT, "floor")
+  .addMember(Vector, "pos")
+  .addMember(Quaternion, "q")
+  .addMember(StudioStruct.TYPES.INT, "compressedikerrorindex")
+  .addMember(StudioStruct.TYPES.INT, "unused2")
+  .addMember(StudioStruct.TYPES.INT, "iStart")
+  .addMember(StudioStruct.TYPES.INT, "ikerrorindex")
+  .addMember(StudioStruct.TYPES.FLOAT, "start")
+  .addMember(StudioStruct.TYPES.FLOAT, "peak")
+  .addMember(StudioStruct.TYPES.FLOAT, "tail")
+  .addMember(StudioStruct.TYPES.FLOAT, "end")
+  .addMember(StudioStruct.TYPES.FLOAT, "unused3")
+  .addMember(StudioStruct.TYPES.FLOAT, "contact")
+  .addMember(StudioStruct.TYPES.FLOAT, "drop")
+  .addMember(StudioStruct.TYPES.FLOAT, "top")
+  .addMember(StudioStruct.TYPES.INT, "unused6")
+  .addMember(StudioStruct.TYPES.INT, "unused7")
+  .addMember(StudioStruct.TYPES.INT, "unused8")
+  .addMember(StudioStruct.TYPES.INT, "szattachmentindex")
+  .addMember(StudioStruct.TYPES.SKIP(7*4), "unused")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "worldAttachment", "szattachmentindex");
+
+const mstudiolocalhierarchy_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "iBone")
+  .addMember(StudioStruct.TYPES.INT, "iNewParent")
+  .addMember(StudioStruct.TYPES.FLOAT, "start")
+  .addMember(StudioStruct.TYPES.FLOAT, "peak")
+  .addMember(StudioStruct.TYPES.FLOAT, "tail")
+  .addMember(StudioStruct.TYPES.FLOAT, "end")
+  .addMember(StudioStruct.TYPES.INT, "iStart")
+  .addMember(StudioStruct.TYPES.INT, "localanimindex")
+  .addMember(StudioStruct.TYPES.SKIP(32));
+
+const mstudioanimsections_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "animblock")
+  .addMember(StudioStruct.TYPES.INT, "animindex");
+
+const mstudioanimdesc_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "baseptr")
+  .addMember(StudioStruct.TYPES.INT, "sznameindex")
+  .addMember(StudioStruct.TYPES.FLOAT, "fps")
+  .addMember(StudioStruct.TYPES.INT, "flags")
+  .addMember(StudioStruct.TYPES.INT, "numframes")
+  .addMember(StudioStruct.TYPES.INT, "nummovements")
+  .addMember(StudioStruct.TYPES.INT, "movementindex")
+  .addMember(StudioStruct.TYPES.SKIP(24), "unused")
+  .addMember(StudioStruct.TYPES.INT, "animblock")
+  .addMember(StudioStruct.TYPES.INT, "animindex")
+  .addMember(StudioStruct.TYPES.INT, "numikrules")
+  .addMember(StudioStruct.TYPES.INT, "ikruleindex")
+  .addMember(StudioStruct.TYPES.INT, "animblockikruleindex")
+  .addMember(StudioStruct.TYPES.INT, "numlocalhierarchy")
+  .addMember(StudioStruct.TYPES.INT, "localhierarchyindex")
+  .addMember(StudioStruct.TYPES.INT, "sectionindex")
+  .addMember(StudioStruct.TYPES.INT, "sectionframes")
+  .addMember(StudioStruct.TYPES.SHORT, "zeroframespan")
+  .addMember(StudioStruct.TYPES.SHORT, "zeroframecount")
+  .addMember(StudioStruct.TYPES.INT, "zeroframeindex")
+  .addMember(StudioStruct.TYPES.FLOAT, "zeroframestalltime")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "name", "sznameindex", true)
+  .addArray(mstudiomovement_t, "movements", "movementindex", "nummovements", true) // Don't know if this is relative (Did not find a model to test with)
+  .addArray(mstudioikrule_t, "ikrules", "ikruleindex", "numikrules", true) // Same. Don't know if index is offset
+  .addArray(mstudiolocalhierarchy_t, "localhierarchy", "localhierarchyindex", "numlocalhierarchy", true) // Relative !?
+  .addArray(mstudioanimsections_t, "sections", "sectionindex", "sectionframes", true);
+
+const mstudioevent_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.FLOAT, "cycle")
+  .addMember(StudioStruct.TYPES.INT, "event")
+  .addMember(StudioStruct.TYPES.INT, "type")
+  .addMember(StudioStruct.TYPES.SKIP(64), "options")
+  .addMember(StudioStruct.TYPES.INT, "szeventindex")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "event", "szeventindex", true)
+  .addArray(StudioStruct.TYPES.BYTE, "options", 12, 64, true);
+
+const mstudioautolayer_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.SHORT, "iSequence")
+  .addMember(StudioStruct.TYPES.SHORT, "iPose")
+  .addMember(StudioStruct.TYPES.INT, "flags")
+  .addMember(StudioStruct.TYPES.FLOAT, "start")
+  .addMember(StudioStruct.TYPES.FLOAT, "peak")
+  .addMember(StudioStruct.TYPES.FLOAT, "tail")
+  .addMember(StudioStruct.TYPES.FLOAT, "end")
+
+const mstudioiklock_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "chain")
+  .addMember(StudioStruct.TYPES.FLOAT, "flPosWeight")
+  .addMember(StudioStruct.TYPES.FLOAT, "flLocalQWeight")
+  .addMember(StudioStruct.TYPES.INT, "flags")
+  .addMember(StudioStruct.TYPES.SKIP(32), "unused")
+
+const mstudioseqdesc_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "baseptr")
+  .addMember(StudioStruct.TYPES.INT, "szlabelindex")
+  .addMember(StudioStruct.TYPES.INT, "szactivitynameindex")
+  .addMember(StudioStruct.TYPES.INT, "flags")
+  .addMember(StudioStruct.TYPES.INT, "activity")
+  .addMember(StudioStruct.TYPES.INT, "actweight")
+  .addMember(StudioStruct.TYPES.INT, "numevents")
+  .addMember(StudioStruct.TYPES.INT, "eventindex")
+  .addMember(Vector, "bbmin")
+  .addMember(Vector, "bbmax")
+  .addMember(StudioStruct.TYPES.INT, "numblends")
+  .addMember(StudioStruct.TYPES.INT, "animindexindex")
+  .addMember(StudioStruct.TYPES.INT, "movementindex")
+  .addMember(StudioStruct.TYPES.INT, "groupsize0")
+  .addMember(StudioStruct.TYPES.INT, "groupsize1")
+  .addMember(StudioStruct.TYPES.INT, "paramindex0")
+  .addMember(StudioStruct.TYPES.INT, "paramindex1")
+  .addMember(StudioStruct.TYPES.FLOAT, "paramstart0")
+  .addMember(StudioStruct.TYPES.FLOAT, "paramstart1")
+  .addMember(StudioStruct.TYPES.FLOAT, "paramend0")
+  .addMember(StudioStruct.TYPES.FLOAT, "paramend1")
+  .addMember(StudioStruct.TYPES.INT, "paramparent")
+  .addMember(StudioStruct.TYPES.FLOAT, "fadeintime")
+  .addMember(StudioStruct.TYPES.FLOAT, "fadeouttime")
+  .addMember(StudioStruct.TYPES.INT, "localentrynode")
+  .addMember(StudioStruct.TYPES.INT, "localexitnode")
+  .addMember(StudioStruct.TYPES.INT, "nodeflags")
+  .addMember(StudioStruct.TYPES.FLOAT, "entryphase")
+  .addMember(StudioStruct.TYPES.FLOAT, "exitphase")
+  .addMember(StudioStruct.TYPES.FLOAT, "lastframe")
+  .addMember(StudioStruct.TYPES.INT, "nextseq")
+  .addMember(StudioStruct.TYPES.INT, "pose")
+  .addMember(StudioStruct.TYPES.INT, "numikrules")
+  .addMember(StudioStruct.TYPES.INT, "numautolayers")
+  .addMember(StudioStruct.TYPES.INT, "autolayerindex")
+  .addMember(StudioStruct.TYPES.INT, "weightlistindex")
+  .addMember(StudioStruct.TYPES.INT, "posekeyindex")
+  .addMember(StudioStruct.TYPES.INT, "numiklocks")
+  .addMember(StudioStruct.TYPES.INT, "iklockindex")
+  .addMember(StudioStruct.TYPES.INT, "keyvalueindex")
+  .addMember(StudioStruct.TYPES.INT, "keyvaluesize")
+  .addMember(StudioStruct.TYPES.INT, "cycleposeindex")
+  .addMember(StudioStruct.TYPES.SKIP(4*7), "unused")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "label", "szlabelindex", true)
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "activityname", "szactivitynameindex", true)
+  .addArray(mstudioevent_t, "events", "eventindex", "numevents", true)
+  .addArray(mstudioautolayer_t, "autolayer", "autolayerindex", "numautolayers", true)
+  .addArray(mstudioiklock_t, "iklockindex", "numiklocks");
+  /**
+   * @todo Allow functions in array parameters
+   */
+  //.addArray(StudioStruct.TYPES.SHORT, "anims", "animindex", data => data.groupsize[0] * data.groupsize[1])
+
+const mstudioattachment_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "sznameindex")
+  .addMember(StudioStruct.TYPES.UINT, "flags")
+  .addMember(StudioStruct.TYPES.INT, "localbone")
+  .addMember(matrix3x4_t, "local")
+  .addMember(StudioStruct.TYPES.SKIP(32), "unused")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "name", "sznameindex", true);
+
+const mstudiomodelgroup_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "szlabelindex")
+  .addMember(StudioStruct.TYPES.INT, "sznameindex")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "label", "szlabelindex", true)
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "name", "sznameindex", true);
+
+const mstudioposeparamdesc_t = new StudioStruct()
+  .addMember(StudioStruct.TYPES.INT, "sznameindex")
+  .addMember(StudioStruct.TYPES.UINT, "flags")
+  .addMember(StudioStruct.TYPES.FLOAT, "start")
+  .addMember(StudioStruct.TYPES.FLOAT, "end")
+  .addMember(StudioStruct.TYPES.FLOAT, "loop")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "name", "sznameindex", true);
 
 const studiohdr_t = new StudioStruct()
   .addMember(StudioStruct.TYPES.INT, "id")
@@ -4559,7 +5026,17 @@ const studiohdr_t = new StudioStruct()
   .addArray(stringIndex, "texturedirs", "texturedir_offset", "texturedir_count")
   .addArray(mstudiobodyparts_t, "bodyparts", "bodypart_offset", "bodypart_count")
   .addArray(mstudiobone_t, "bones", "bone_index", "bone_count")
-  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "surfaceProp", "surfaceprop_index");
+  .addArray(mstudiohitboxset_t, "hitboxes", "hitbox_offset", "hitbox_count")
+  .addArray(mstudiobonecontroller_t, "bonecontroller", "bonecontroller_offset", "bonecontroller_count")
+  .addArray(mstudioanimdesc_t, "localanims", "localanim_offset", "localanim_count")
+  .addArray(mstudioseqdesc_t, "sequences", "localseq_offset", "localseq_count")
+  .addArray(mstudioattachment_t, "attachments", "attachment_offset", "attachment_count")
+  .addArray(mstudioiklock_t, "iklocks", "iklock_index", "iklock_count")
+  .addArray(mstudiomodelgroup_t, "includemodel_index", "animblocks_count")
+  .addArray(StudioStruct.TYPES.SHORT, "skinreferences", "skinreference_index", "skinreference_count")
+  .addArray(mstudioposeparamdesc_t, "localposeparams", "localposeparam_offset", "localposeparam_count")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "surfaceProp", "surfaceprop_index")
+  .addReference(StudioStruct.TYPES.NULL_TERMINATED_STRING(), "keyvalue", "keyvalue_index");
 
 const vertexFileFixup_t = new StudioStruct()
   .addMember(StudioStruct.TYPES.INT, "lod")
@@ -4601,17 +5078,28 @@ module.exports = {
 
 class Report {
 
-  constructor(options, buffer) {
+  constructor(buffer, options) {
     this.buffer = buffer;
     
-    this.monitorUsage = !!options.monitorUsage;
+    this.monitorUsage = Boolean(options.monitorUsage);
+    this.hideReferenceValues = Boolean(options.hideReferenceValues)
 
     if (this.monitorUsage) {
       this.usageBuffer = Buffer.alloc(buffer.length);
     }
 
+    // Path to the current read entry
+    this.path = "root";
+
     this.errors = [];
     this.arrays = [];
+  }
+
+  addError(message) {
+    this.errors.push({
+      path: this.path,
+      message
+    });
   }
 
   markAreaAsRead(start, length) {
@@ -4630,11 +5118,13 @@ class Report {
       for (let j = i; j < this.arrays.length; j++) {
         let a2 = this.arrays[j];
 
+        if (a1.length == 0 || a2.length == 0) continue;
         if (a1 == a2) continue;
         if (a1.start == a2.start) continue;
 
-        if ((a1.start + a1.length) > a2.start) {
-          this.errors.push("Array " + a1.name + " overlaps with " + a2.name);
+        if (a1.start < (a2.start + a2.length) && a2.start < (a1.start + a1.length)) {
+          this.path = a1.path + "/" + a2.path;
+          this.addError("Array " + a1.name + " overlaps with " + a2.name);
         }
       }
     }
@@ -4652,8 +5142,8 @@ class Report {
     out += "\n Number of arrays: " + this.arrays.length;
 
     if (this.errors.length) {
-      out += "\n Errors (" + this.errors.length + "):\n"
-      + this.errors.join("\n  ");
+      out += "\n Errors (" + this.errors.length + "):\n  "
+      + this.errors.map(e => e.path + ": " + e.message).join("\n  ");
     } else {
       out += "\n No errors were found."
     }
@@ -4662,6 +5152,7 @@ class Report {
   }
 
   getUsage() {
+    if (!this.monitorUsage) return NaN;
     let number = 0;
     for (let i = 0; i < this.usageBuffer.length; i++) {
       if (this.usageBuffer[i] > 0) number++;
@@ -4760,25 +5251,33 @@ class Struct {
   read(buffer, offset = 0, report = null) {
     let data = {};
     let address = offset;
+
+    if (!report) report = new Report({}, buffer);
+
+    let path = report.path;
+
     for (let member of this.members) {
+      report.path = path + "." + member.name;
       data[member.name] = member.type.read(buffer, address, report);
       address += member.type.SIZE;
     }
 
+
     for (let array of this.arrays) {
       let arrayOffset = (typeof array.offsetMemberName == 'string') ? data[array.offsetMemberName] : array.offsetMemberName;
-      let arrayCount = (typeof array.offsetMemberName == 'string') ? data[array.countMemberName] : array.countMemberName;
+      let arrayCount = (typeof array.countMemberName == 'string') ? data[array.countMemberName] : array.countMemberName;
 
       if (array.relative) arrayOffset += offset;
 
       let arr = [];
       for (let i = 0; i < arrayCount; i++) {
+        report.path = path + "." + array.name + "[" + i + "]";
         arr.push(
           array.type.read(buffer, arrayOffset + i * array.type.SIZE, report)
         );
       }
 
-      // Does double mark some fields that are only read ones :/
+      // Does double mark some fields that are only read once :/
       report.markAreaAsRead(arrayOffset, arrayCount * array.type.SIZE);
 
       data[array.name] = arr;
@@ -4788,26 +5287,46 @@ class Struct {
           name: array.name,
           start: arrayOffset, 
           count: arrayCount, 
-          length: arrayCount * array.type.SIZE
+          length: arrayCount * array.type.SIZE,
+          path: path + "." + array.name
         });
       }
     }
 
     for (let reference of this.references) {
-      let referenceOffset = data[reference.memberName];
-      if (reference.relative) referenceOffset += offset;
-      data[reference.name] = reference.type.read(buffer, referenceOffset, report);
+      report.path = path + "." + reference.name;
+
+      try {
+        let referenceOffset = data[reference.memberName];
+        if (reference.relative) referenceOffset += offset;
+        data[reference.name] = reference.type.read(buffer, referenceOffset, report);
+      } catch (e) {
+        report.addError(e.message);
+      }
     }
 
-    for (let rule of this.rules) {
+    for (let i = 0; i < this.rules.length; i++) {
+      let rule = this.rules[i];
       let response = rule.rule(data, buffer);
       if (response) {
-        report.errors.push(response);
+        report.path = path + ":rule[" + i + "]";
+        report.addError(response);
       }
     }
 
     if (report) {
-      report.markAreaAsRead(offset, this.SIZE)
+      report.markAreaAsRead(offset, this.SIZE);
+
+      if (report.hideReferenceValues) {
+        // Remove all values that are only used as pointers or other data structure data to keep the result clean
+        for (let array of this.arrays) {
+          if (typeof array.offsetMemberName == 'string') delete data[array.offsetMemberName];
+          if (typeof array.countMemberName == 'string') delete data[array.countMemberName];
+        }
+        for (let reference of this.references) {
+          if (typeof reference.memberName == 'string') delete data[reference.memberName];
+        }
+      }
     }
 
     return data;
@@ -4826,10 +5345,8 @@ class Struct {
    * @param {*} offset Offset byte to start reading from
    * @returns {Report} The report
    */
-  report(buffer, offset) {
-    let report = new Report({
-      monitorUsage: true
-    }, buffer);
+  report(buffer, offset, options = { monitorUsage: true }) {
+    let report = new Report(buffer, options);
     report.data = this.read(buffer, offset, report);
 
     report.checkForArrayCollisions();
@@ -4985,6 +5502,9 @@ module.exports = {
         let len = 0;
         while (buffer.readUInt8(offset + len) != 0) {
           len++;
+          if (len >= buffer.length) {
+            throw new Error("Null terminated string went outside buffer!");
+          }
         }
 
         // Also report last byte as used information
