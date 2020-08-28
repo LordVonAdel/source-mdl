@@ -80,3 +80,7 @@ button:hover {
   margin-left: 0.5em;
   font-size: 200%;
 }
+
+.tip {
+  font-style: italic;
+}
