@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MDL to GLTF converter</title>
+    <title>Source MDL</title>
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
     <div class="background"></div>
 
     <main class="">
-      <h1>MDL to GLTF converter</h1>
+      <h1>Source MDL</h1>
       <p>Conversion is performed locally in your browser. Submitted assets are not uploaded.</p>
 
       <div id="dropzone">
@@ -36,8 +36,8 @@
         </div>
       </div>
 
-      <button id="btn-json">Convert to JSON</button>
-      <button id="btn-read">Download GLTF</button>
+      <button disabled id="btn-json">Convert to JSON</button>
+      <button disabled id="btn-gltf">Download GLTF</button>
 
       <p>This tool works with most models from Portal 2. It may not work with other Source games. Tested in Chrome and Firefox</p>
       <p class="tip">TIP: You can drag files directly from GCFScape</p>
@@ -68,10 +68,11 @@
             }
           }
         }
- 
+
+        updateConvertButtons();
       });
 
-      document.getElementById("btn-read").addEventListener("click", () => {
+      document.getElementById("btn-gltf").addEventListener("click", () => {
         if (!("mdl" in files && "vvd" in files && "vtx" in files)) {
           return false;
         }
@@ -133,6 +134,12 @@
         });
         reader.readAsArrayBuffer(files["mdl"]);
       });
+
+      function updateConvertButtons() {
+        let active = "mdl" in files && "vvd" in files && "vtx" in files;
+        document.getElementById("btn-json").disabled = !active;
+        document.getElementById("btn-gltf").disabled = !active;
+      }
     </script>
   </body>
 </html>
