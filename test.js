@@ -15,6 +15,7 @@ fs.readFile('./test/candles.mdl', (err, mdlData) => {
 
       console.log(model.toData());
       fs.writeFileSync("test/test.gltf", JSON.stringify(model.toGLTF()));
+      fs.writeFileSync("test/test.obj", model.toObj());
     });
   });
 });

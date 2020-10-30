@@ -35,7 +35,18 @@ fs.readFile('./turret.mdl', (err, mdlData) => {
 
       // Export as GLTF
       fs.writeFileSync("/turret.gltf", JSON.stringify(model.toGLTF()));
+
+      // Export as Obj
+      fs.writeFileSync("/turret.obj", JSON.stringify(model.toObj()));
     });
   });
 });
 ```
+
+## Export
+This module can convert MDL to different formats.
+| Format       | Geometry    | UVs | Materials  | Armature | Animations
+| -------------|-------------|-----|------------|----------|-----------
+| GLTF         | Yes         | Yes | Referenced | No       | No
+| OBJ          | Yes         | Yes | Referenced | No       | No
+Or you can create your own exporter with the object obtained by `model.getData()` or use an external GLTF/OBJ to anything converter.
