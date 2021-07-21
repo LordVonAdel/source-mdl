@@ -426,7 +426,7 @@ const studiohdr_t = new StudioStruct()
   .addArray(stringIndex, "texturedirs", "texturedir_offset", "texturedir_count")
   .addArray(mstudiobodyparts_t, "bodyparts", "bodypart_offset", "bodypart_count")
   .addArray(mstudiobone_t, "bones", "bone_index", "bone_count")
-  .addArray(mstudiohitboxset_t, "hitboxes", "hitbox_offset", "hitbox_count")
+  //.addArray(mstudiohitboxset_t, "hitboxes", "hitbox_offset", "hitbox_count") // Crashed on some files
   .addArray(mstudiobonecontroller_t, "bonecontroller", "bonecontroller_offset", "bonecontroller_count")
   .addArray(mstudioanimdesc_t, "localanims", "localanim_offset", "localanim_count")
   .addArray(mstudioseqdesc_t, "sequences", "localseq_offset", "localseq_count")

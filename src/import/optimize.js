@@ -27,7 +27,7 @@ const StripHeader_t = new StudioStruct("StripHeader_t")
   .addMember(StudioStruct.TYPES.BYTE, "flags")
   .addMember(StudioStruct.TYPES.INT, "numBoneStateChanges")
   .addMember(StudioStruct.TYPES.INT, "boneStateChangeOffset")
-  .addArray(Vertex_t, "vertices", "vertOffset", "numVerts", true)
+  //.addArray(Vertex_t, "vertices", "vertOffset", "numVerts", true) // Crashes on some files
   //.addArray(BoneStateChangeHeader_t, "boneStateChange", "boneStateChangeOffset", "numBoneStateChanges", true);
 
 const StripGroupHeader_t = new StudioStruct("StripGroupHeader_t")
