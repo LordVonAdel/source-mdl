@@ -13,34 +13,35 @@ Check out an online working [demo](https://lordvonadel.github.io/source-mdl/)
 
 ## How to use
 ```js
-const MDL = require('source-mdl');
+const MDL = require('./src/MDL.js');
+const fs = require('fs').promises;
 
-// Create an MDL instance
-let model = new MDL();
+(async () => {
+  // Read files or get the buffers from somewhere else
+  let mdlData = await fs.readFile('./test/candles.mdl');
+  let vtxData = await fs.readFile('./test/candles.dx90.vtx');
+  let vvdData = await fs.readFile('./test/candles.vvd');
 
-// Read files or get the buffers from somewhere else
-fs.readFile('./turret.mdl', (err, mdlData) => {
-  if (err) return console.error(err);
-  
-  fs.readFile('./turret.dx90.vtx', (err, vtxData) => {
-    if (err) return console.error(err);
-    
-    fs.readFile('./turret.vvd', (err, vvdData) => {
+  // Create an MDL instance
+  let model = new MDL();
 
-      // Import the three buffers
-      model.import({mdlData, vtxData, vvdData});
+  // Import the three buffers
+  model.import({mdlData, vtxData, vvdData});
 
-      // If you want, look at some metadata
-      console.log(model.getMetadata());
+  // If you want, look at some metadata
+  console.log(model.getMetadata());
 
-      // Export as GLTF
-      fs.writeFileSync("/turret.gltf", JSON.stringify(model.toGLTF()));
+  // Export as GLTF
+  await fs.writeFile("test/test.gltf", JSON.stringify(model.toGLTF()));
 
-      // Export as OBJ
-      fs.writeFileSync("/turret.obj", JSON.stringify(model.toOBJ()));
-    });
-  });
-});
+  // Export as OBJ
+  await fs.writeFile("test/test.obj", model.toObj());
+
+  // You can import only the MDL buffer if you are only interested in metadata without geometry
+  let modelNoGeometry = new MDL();
+  modelNoGeometry.import({mdlData});
+  console.log(model.getMetadata());
+})();
 ```
 
 ## Export

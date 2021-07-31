@@ -29,6 +29,7 @@ class MDL {
 
   constructor() {
     this.name = "";
+    this.hasGeometry = false;
 
     this.eyeposition = [0, 0, 0];
     this.illumposition = [0, 0, 0];
@@ -108,14 +109,17 @@ class MDL {
   }
 
   toGLTF() {
+    if (!this.hasGeometry) throw new Error("No Geometry data is present. This most likely because no VVD and VTX file was supplied to the importer");
     return toGLTF(this);
   }
 
   toObj() {
+    if (!this.hasGeometry) throw new Error("No Geometry data is present. This most likely because no VVD and VTX file was supplied to the importer");
     return toOBJ(this);
   }
   
   toXMODEL() {
+    if (!this.hasGeometry) throw new Error("No Geometry data is present. This most likely because no VVD and VTX file was supplied to the importer");
     return toXMODEL(this);
   }
 

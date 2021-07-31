@@ -25,28 +25,31 @@ class Import {
 
   constructor(data, mdl) {
     this.mdl = mdl;
+    this.importMDL = null;
+    this.importVTX = null;
+    this.importVVD = null;
 
     let id = data.mdlData.readInt32BE(0);
     if (id != 0x49445354) throw new Error("Unkown MDL id: " + id);
 
-    this.importMDL = studio.studiohdr_t.report(data.mdlData, 0, { hideReferenceValues: true, monitorUsage: true });
-    this.importVTX = optimize.FileHeader_t.report(data.vtxData, 0, { hideReferenceValues: true, monitorUsage: true });
-    this.importVVD = studio.vertexFileHeader_t.report(data.vvdData, 0, { hideReferenceValues: true, monitorUsage: true });
+    if (data.mdlData) {
+      this.importMDL = studio.studiohdr_t.report(data.mdlData, 0, { hideReferenceValues: true, monitorUsage: true });
+      this.headerMDL = this.importMDL.data;
+    }
+    if (data.vtxData) {
+      this.importVTX = optimize.FileHeader_t.report(data.vtxData, 0, { hideReferenceValues: true, monitorUsage: true });
+      this.headerVTX = this.importVTX.data;
+    }
+    if (data.vvdData) {
+      this.importVVD = studio.vertexFileHeader_t.report(data.vvdData, 0, { hideReferenceValues: true, monitorUsage: true });
+      this.headerVVD = this.importVVD.data;
+    }
 
-    console.log(this.importMDL.toString());
-
-    this.headerMDL = this.importMDL.data;
-    this.headerVTX = this.importVTX.data;
-    this.headerVVD = this.importVVD.data;
     mdl.raw = {
       MDL: this.headerMDL,
       VTX: this.headerVTX,
       VVD: this.headerVVD
     }
-
-    if (this.headerMDL.checksum != this.headerVTX.checkSum) throw new Error("Checksums don't match! (MDL <-> VTX)");
-    if (this.headerMDL.checksum != this.headerVVD.checksum) throw new Error("Checksums don't match! (MDL <-> VVD)");
-    if (this.headerVTX.version != OPTIMIZED_MODEL_FILE_VERSION) throw new Error("Incompatible VTX version!");
 
     this.mdl.name = this.headerMDL.name;
     this.mdl.surfaceProp = this.headerMDL.surfaceProp;
@@ -57,6 +60,16 @@ class Import {
 
     this.mdl.vertices = [];
     this.mdl.meshes = [];
+
+    if (!this.headerVTX || !this.headerVVD) {
+      return;
+    }
+    this.mdl.hasGeometry = true;
+
+    if (this.headerMDL.checksum != this.headerVTX.checkSum) throw new Error("Checksums don't match! (MDL <-> VTX)");
+    if (this.headerMDL.checksum != this.headerVVD.checksum) throw new Error("Checksums don't match! (MDL <-> VVD)");
+    if (this.headerVTX.version != OPTIMIZED_MODEL_FILE_VERSION) throw new Error("Incompatible VTX version!");
+
     for (let i = 0; i < this.headerVVD.numLODs; i++) {
       this.mdl.vertices[i] = [];
       this.mdl.meshes[i] = [];
