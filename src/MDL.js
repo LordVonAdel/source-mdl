@@ -66,7 +66,7 @@ class MDL {
       flags: this.getFlagStrings(),
       surfaceProp: this.surfaceProp,
       LODs: this.vertices.length,
-      verticeNumber: this.vertices[0].length,
+      verticeNumber: this.vertices.length ? this.vertices[0].length : 0,
       textures: this.textures,
       textureDirs: this.textureDirs
     }
