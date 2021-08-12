@@ -16,7 +16,7 @@ const fs = require('fs').promises;
 
   let modelNoGeometry = new MDL();
   modelNoGeometry.import({mdlData});
-  console.log(model.getMetadata());
+  console.log(modelNoGeometry.getMetadata());
   try {
     modelNoGeometry.toGLTF();
   } catch (e) {
